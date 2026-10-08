@@ -1,0 +1,157 @@
+spring:
+  application:
+    name: manguessr
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:manguessr}
+    driverClassName: org.postgresql.Driver
+    username: ${DB_USER:manguessr}
+    password: ${DB_PASSWORD:manguessr}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  compression:
+    enabled: true
+    mime-types: application/json,text/plain
+    min-response-size: 2048
+
+jwt:
+  secret: ${JWT_SECRET:change_me_this_secret_must_be_at_least_256_bits_long_for_the_hs256_algorithm}
+  expiration: ${JWT_EXPIRATION:2592000000} # 30 jours
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+
+  # Emails promus ROLE_ADMIN a l'inscription (separes par des virgules).
+  # Un admin peut declencher l'ingestion du catalogue.
+  admin-emails: ${ADMIN_EMAILS:}
+
+  catalog:
+    # Fournisseur de metadonnees. Seul "anilist" est implemente ; l'interface
+    # MediaCatalogProvider permet d'en brancher un autre sans toucher au jeu.
+    provider: ${CATALOG_PROVIDER:anilist}
+
+    # 50 est le maximum tenable : verifie a 464 Ko et 1,5 s par page avec tous les
+    # champs imbriques, sous la limite de complexite d'AniList.
+    page-size: ${CATALOG_PAGE_SIZE:50}
+    # 40 pages x 50 = 2000 oeuvres par univers. AniList plafonne la pagination a 100 pages.
+    max-pages-per-type: ${CATALOG_MAX_PAGES:40}
+
+    # Paliers de difficulte par rang de popularite dans l'univers (voir DifficultyTiers).
+    # Rangs absolus : agrandir le catalogue ne dilue pas le « facile ». Au-dela de
+    # hard-max-rank, une oeuvre sert a l'autocompletion et a la validation, jamais au tirage.
+    # Rangs de coupure des paliers, par univers : les deux catalogues n'ont pas la meme
+    # densite. Au rang 1500 cote anime on est encore sur « Squid Girl », au rang 900 cote manga
+    # on quitte deja le reconnaissable. Au-dela du dernier rang, l'oeuvre sert encore a
+    # l'autocompletion et a la validation, mais n'est plus tiree. Voir CatalogTiers.
+    tiers:
+      anime:
+        easy-max-rank: ${TIERS_ANIME_EASY:150}
+        medium-max-rank: ${TIERS_ANIME_MEDIUM:500}
+        hard-max-rank: ${TIERS_ANIME_HARD:1500}
+      manga:
+        easy-max-rank: ${TIERS_MANGA_EASY:150}
+        medium-max-rank: ${TIERS_MANGA_MEDIUM:450}
+        hard-max-rank: ${TIERS_MANGA_HARD:900}
+
+    anilist:
+      # Ces deux en-tetes conditionnent l'acces : sans Referer, AniList repond 403 avec un
+      # message evoquant a tort une panne globale. Voir la javadoc d'AniListClient.
+      referer: ${ANILIST_REFERER:https://anilist.co/}
+      user-agent: ${ANILIST_USER_AGENT:manguessr/1.0}
+      # Regime degrade annonce par leur documentation.
+      requests-per-minute: ${ANILIST_RPM:30}
+
+    mangadex:
+      user-agent: ${MANGADEX_USER_AGENT:manguessr/1.0}
+      requests-per-second: ${MANGADEX_RPS:4}
+      # Taille du balayage du catalogue MangaDex pour etablir la correspondance des identifiants.
+      # A 2000, seuls 453 des 1000 mangas AniList etaient retrouves : le classement MangaDex
+      # (par suivis) differe beaucoup de celui d'AniList. MangaDex plafonne offset+limit a 10000.
+      mapping-size: ${MANGADEX_MAPPING_SIZE:10000}
+      # Nombre de mangas enrichis en couvertures de volumes (1 requete chacun).
+      # Mangas non atteints par le balayage, recherches un par un par titre (~2 requetes chacun).
+      max-manga-for-title-search: ${MANGADEX_MAX_TITLE_SEARCH:2000}
+      # Cette etape fixe aussi le mangadexId : elle plafonne donc l'etape des pages.
+      max-manga-for-covers: ${MANGADEX_MAX_COVERS:2000}
+      # Mode Images manga : pages interieures de chapitres (4 requetes par manga).
+      # ~7 s par manga (at-home), mais seuls les mangas encore sans pages sont traites.
+      max-manga-for-pages: ${MANGADEX_MAX_PAGES:2000}
+      chapters-per-manga: 3
+      pages-per-chapter: 2
+      # Plafond de l'endpoint at-home (40/min cote MangaDex) : on reste en dessous.
+      at-home-requests-per-minute: 30
+
+    animethemes:
+      user-agent: ${ANIMETHEMES_USER_AGENT:manguessr/1.0}
+      requests-per-second: ${ANIMETHEMES_RPS:4}
+      # Nombre d'animes interroges pour leurs generiques (1 requete chacun).
+      max-works: ${ANIMETHEMES_MAX_WORKS:2000}
+
+  media:
+    # Cache disque des rendus (flou, recadrage). Les paliers etant en nombre fini,
+    # chaque image n'est traitee qu'une fois.
+    cache-path: ${MEDIA_CACHE_PATH:./media-cache}
+    # Rendu anticipe des images d'une partie et du puzzle du jour, en tache de fond.
+    # Le premier appel a une image coute ~1 s, presque entierement passee a attendre le CDN
+    # d'origine. A couper pour diagnostiquer, ou quand la source est injoignable.
+    warmup-enabled: ${MEDIA_WARMUP:true}
+    # Secret de signature des jetons media. A defaut, derive de jwt.secret.
+    token-secret: ${MEDIA_TOKEN_SECRET:}
+    # Duree de vie d'un jeton : doit couvrir une partie sans etre indefinie.
+    token-validity-minutes: ${MEDIA_TOKEN_VALIDITY_MINUTES:180}
+
+  daily:
+    # Genere les puzzles du jour et du lendemain a 00:05 UTC, et rattrape le jour courant au
+    # demarrage. Un puzzle manquant est de toute facon genere a la premiere partie du jour.
+    scheduler-enabled: ${DAILY_SCHEDULER_ENABLED:true}
+    cron: "0 5 0 * * *"
+    # Une oeuvre ne revient pas dans le meme mode et le meme univers avant ce delai.
+    non-repeat-days: 180
+
+  # Barems repris a l'identique des rulebooks AniGuessr. Voir README.
+  unlimited:
+    # Oeuvres des dernieres manches libres d'un joueur, exclues de ses parties suivantes.
+    # Sans cette memoire, chaque partie libre retire a neuf dans tout le vivier.
+    recent-works: 30
+  game:
+    images:
+      max-score: 10000
+      clue-cost: 2500
+    characters:
+      character-points: 2000
+      title-points: 500
+      per-round: 4
+      # Portrait tire parmi les N personnages les plus populaires de l'oeuvre, selon son palier.
+      # A 2, 1000 animes ne donnaient que 1261 personnes ; a 5 sur 6 personnages ingeres, Ichigo
+      # sortait une fois sur cinq pour Bleach. Une oeuvre populaire a beaucoup de personnages
+      # reconnaissables (Byakuya, Toshiro...), une oeuvre confidentielle guere plus que ses heros.
+      pick-from-top-easy: 10
+      pick-from-top-medium: 8
+      pick-from-top-hard: 5
+      # Une fiche AniList rattachee a plus de N oeuvres n'est pas un personnage mais un
+      # artefact : « Narrator » est attache a 146 animes. Le record legitime observe est 15
+      # (Koyomi Araragi, saisons de Monogatari), d'ou un seuil largement au-dessus.
+      generic-min-works: 30
+    theme:
+      max-score: 5000
+      video-clue-cost: 2500
+    wordle:
+      max-score: 10000
+      max-attempts: 22
+      free-attempts: 3
+      wrong-answer-cost: 500
+      cover-clue-after: 12
+      synopsis-clue-after: 18
+      character-clue-after: 21
+    cover-reveal:
+      max-score: 10000
+      max-attempts: 10
+      wrong-answer-cost: 1000
+      base-blur-px: 32

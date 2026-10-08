@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: manguessr-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-manguessr}
+      POSTGRES_USER: ${DB_USER:-manguessr}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-manguessr}
+    ports:
+      # Publie sur la boucle locale uniquement : suffisant pour le backend de dev hors conteneur,
+      # sans exposer la base au reseau local.
+      - "127.0.0.1:${HOST_DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-manguessr}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: manguessr-backend
+    # Pas de port publie : l'API n'est joignable que via nginx (service frontend).
+    environment:
+      # Ces valeurs l'emportent sur env_file : le .env sert aussi au dev hors conteneur,
+      # ou DB_HOST, SERVER_PORT et le chemin du cache different.
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - SERVER_PORT=8080
+      - MEDIA_CACHE_PATH=/app/media-cache
+      # Le Pi partage sa RAM avec d'autres services : tas borne explicitement.
+      - JAVA_TOOL_OPTIONS=-Xmx1g
+    env_file:
+      - ./.env
+    volumes:
+      # Cache disque des images pre-floutees / recadrees (phase 3).
+      - media_cache:/app/media-cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:8080/api/games || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: manguessr-frontend
+    ports:
+      - "${HOST_FRONTEND_PORT:-8091}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  media_cache:

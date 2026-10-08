@@ -1,0 +1,25 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+// Cible du proxy /api en dev. Surchargeable sans editer ce fichier :
+//   VITE_PROXY_TARGET=http://localhost:8099 npm run dev
+const proxyTarget = process.env.VITE_PROXY_TARGET ?? 'http://localhost:8080'
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src')
+    }
+  },
+  server: {
+    port: 3000,
+    proxy: {
+      '/api': {
+        target: proxyTarget,
+        changeOrigin: true
+      }
+    }
+  }
+})

@@ -1,0 +1,25 @@
+# Java
+backend/target/
+*.jar
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Environnement
+.env
+
+# Cache des images generees
+media-cache/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Notes locales (infra perso, non publiees)
+CLAUDE.md
+.claude/
+
+# Journaux
+*.log

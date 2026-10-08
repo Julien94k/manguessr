@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:manguessr;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driverClassName: org.h2.Driver
+    username: sa
+    password: ''
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+
+app:
+  daily:
+    # Pas de generation au demarrage des tests : chaque test cree ses puzzles explicitement.
+    scheduler-enabled: false
+  media:
+    # Les URLs du catalogue de test pointent vers cdn.example : sans cela, creer un puzzle
+    # declencherait de vrais appels reseau en tache de fond.
+    warmup-enabled: false

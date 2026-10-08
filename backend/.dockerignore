@@ -1,0 +1,6 @@
+# Contexte de build minimal : le conteneur recompile depuis les sources.
+target/
+media-cache/
+*.log
+.idea/
+.vscode/
