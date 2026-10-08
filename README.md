@@ -9,6 +9,19 @@ Raspberry Pi.
 
 **Démo en ligne : <https://manguessr.julienhome.com>**
 
+![Accueil : défi du jour](docs/screenshots/home.webp)
+
+| Mode Images | Mode Personnages |
+|---|---|
+| ![Mode Images](docs/screenshots/images.webp) | ![Mode Personnages](docs/screenshots/characters.webp) |
+
+<details>
+<summary>Mode Anidle (déduction façon Wordle)</summary>
+
+![Mode Anidle](docs/screenshots/wordle.webp)
+
+</details>
+
 ## Modes de jeu
 
 | Mode | Univers | Principe |
